@@ -19,10 +19,12 @@ bool SDL3Input::Init()
         return false;
     }
 
-    if (SDL_AddGamepadMappingsFromFile("gamecontrollerdb.txt") < 0)
+#ifdef MOONCHILD_GAMECONTROLLERDB_PATH
+    if (SDL_AddGamepadMappingsFromFile(MOONCHILD_GAMECONTROLLERDB_PATH) < 0)
     {
         printf("SDL gamepad mapping load failed! %s\n", SDL_GetError());
     }
+#endif
 
     int count = 0;
     if (SDL_JoystickID* ids = SDL_GetGamepads(&count))
