@@ -7,6 +7,7 @@ Differences from the original Windows 95 release include (but not limited to):
 - Proper support for the latest Windows versions, as well as Linux
 - A full web version that you can play in your browser
 - Automatic saving and loading of progress
+- Controller support
 - Independent input mapping for "Up" and "Jump"
 - Fullscreen and windowed display modes
 - 50FPS and 60FPS toggle, with Vsync support
@@ -40,3 +41,6 @@ https://www.metinseven.nl
 Ramon Braumuller
 https://open.spotify.com/artist/6ljLO5A329ym1FARh4xAz4?si=I2-mmFi4Qq-CLNZvoku7Pw
 
+### Special Thanks
+Eidolon
+AlbertHamik
