@@ -41,6 +41,11 @@ int	  FirstTimeShowCredzFlg;
 #define DISCARD_UNUSED_PATS
 
 
+// if defined the editor is ready to go (can also be set from CMake now!)
+
+//#define EDITOR
+
+
 // if defined you're able to grab screenshots from movies and game!
 
 //#define GRABBER
