@@ -47,7 +47,7 @@ void framework_util_displayerror(char *errstring);
 
 
 typedef void * (*HEARTBEAT_FN )(void);
-void __cdecl Err( LPSTR fmt, ... );         // This is a generic error reporter. Just does a MsgBox
+//void __cdecl Err( LPSTR fmt, ... );         // This is a generic error reporter. Just does a MsgBox
 
 #ifdef _IN_MAIN
 
