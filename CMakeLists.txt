@@ -266,8 +266,6 @@ elseif(UNIX AND NOT APPLE)
     set(PLATFORM_NAME "Linux")
     target_compile_definitions(${EXECUTABLE_NAME} PRIVATE MOONCHILD_LINUX)
     include(${CMAKE_CURRENT_LIST_DIR}/CMake/Platforms/Linux.cmake)
-else()
-    message(FATAL_ERROR "Unrecognized compile target!")
 endif()
 
 # Output directories
