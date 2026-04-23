@@ -10,9 +10,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
-#if defined(__linux__) || defined(__EMSCRIPTEN__)
 #include <unistd.h>
-#endif
 #endif
 
 #ifdef __EMSCRIPTEN__
