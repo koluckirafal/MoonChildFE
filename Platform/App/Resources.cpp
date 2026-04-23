@@ -113,6 +113,10 @@ static void EnsureBasePath()
     std::snprintf(BasePath, sizeof(BasePath), "/");
     std::snprintf(DataPath, sizeof(DataPath), "/data/");
     std::snprintf(WritablePath, sizeof(WritablePath), "/persistent/");
+#elif MOONCHILD_DREAMCAST
+    std::snprintf(BasePath, sizeof(BasePath), "/cd/");
+    std::snprintf(DataPath, sizeof(DataPath), "/cd/data/");
+    std::snprintf(WritablePath, sizeof(WritablePath), "/vmu/"); // TODO: proper VMU save data package with metadata
 #else
     char exeDir[4096];
     char writeablePath[4096];
