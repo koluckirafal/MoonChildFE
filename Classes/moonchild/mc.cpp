@@ -4824,7 +4824,7 @@ void rec_savemap(void)
     {
       *(recpnt++) = 0xff; // end of play marker
     
-      rc = savedocfile("mcrecord.buf", (char *) recbuf, RECTIME*50 );
+      rc = savefile("mcrecord.buf", (char *) recbuf, RECTIME*50 );
       if (rc)
       {
         log_out("Autoplay saved correctly");
@@ -4846,7 +4846,7 @@ void rec_prepmap(void)
 
       recflg = 1;  // use replayer or recorder!
       recbuf = (BYTE *) malloc((RECTIME*50) + 100);
-      rc = loaddocfile("mcrecord.buf", (char *) recbuf, RECTIME*50);
+      rc = loadfile("mcrecord.buf", (char *) recbuf, RECTIME*50);
       recpnt = recbuf;
       playflg = 0;          // lets record
       if (rc) playflg = 1;
