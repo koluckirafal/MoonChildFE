@@ -50,6 +50,19 @@ else()
     set(MOONCHILD_USE_OPENGL OFF)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "dreamcast")
+    set(MOONCHILD_USE_SDL3 OFF)
+    set(MOONCHILD_WINDOW_SDL3 OFF)
+    set(MOONCHILD_RENDERER_GL OFF)
+    set(MOONCHILD_RENDERER_SDL3 OFF)
+    set(MOONCHILD_INPUT_SDL3 OFF)
+    set(MOONCHILD_AUDIO_SDL3 OFF)
+    set(MOONCHILD_WINDOW_DREAMCAST ON)
+    set(MOONCHILD_RENDERER_DREAMCAST ON)
+    set(MOONCHILD_INPUT_DREAMCAST ON)
+    set(MOONCHILD_AUDIO_DREAMCAST ON)
+endif()
+
 # Sanity checks
 if(MOONCHILD_RENDERER_GL AND MOONCHILD_RENDERER_SDL3)
     message(FATAL_ERROR
@@ -99,6 +112,9 @@ if(MOONCHILD_VENDORED_ZLIB)
   set(ZLIB_BUILD_STATIC   ON  CACHE BOOL "" FORCE)
   add_subdirectory("${LIBRARY_DIR}/zlib" "${CMAKE_BINARY_DIR}/zlib" EXCLUDE_FROM_ALL)
 else()
+  if(CMAKE_SYSTEM_NAME STREQUAL "dreamcast")
+    set(ZLIB_INCLUDE_DIR ${KOS_PORTS}/include/zlib)
+  endif()
   find_package(ZLIB)
 endif()
 
@@ -147,6 +163,11 @@ if(MOONCHILD_WINDOW_SDL3)
     list(APPEND BACKEND_INCLUDES ${PLATFORM_DIR}/Backends/Window)
 endif()
 
+if(MOONCHILD_WINDOW_DREAMCAST)
+    list(APPEND BACKEND_SOURCES  ${PLATFORM_DIR}/Backends/Window/DreamcastWindow.cpp)
+    list(APPEND BACKEND_INCLUDES ${PLATFORM_DIR}/Backends/Window)
+endif()
+
 if(MOONCHILD_RENDERER_GL)
     list(APPEND BACKEND_SOURCES
         ${PLATFORM_DIR}/Backends/Renderer/GLRenderer.cpp
@@ -163,13 +184,32 @@ if(MOONCHILD_RENDERER_SDL3)
     list(APPEND BACKEND_INCLUDES ${PLATFORM_DIR}/Backends/Renderer)
 endif()
 
+if(MOONCHILD_RENDERER_DREAMCAST)
+    list(APPEND BACKEND_SOURCES  ${PLATFORM_DIR}/Backends/Renderer/DreamcastRenderer.cpp)
+    list(APPEND BACKEND_INCLUDES ${PLATFORM_DIR}/Backends/Renderer)
+endif()
+
 if(MOONCHILD_INPUT_SDL3)
     list(APPEND BACKEND_SOURCES  ${PLATFORM_DIR}/Backends/Input/SDL3Input.cpp)
     list(APPEND BACKEND_INCLUDES ${PLATFORM_DIR}/Backends/Input)
 endif()
 
+if(MOONCHILD_INPUT_DREAMCAST)
+    list(APPEND BACKEND_SOURCES  ${PLATFORM_DIR}/Backends/Input/DreamcastInput.cpp)
+    list(APPEND BACKEND_INCLUDES ${PLATFORM_DIR}/Backends/Input)
+endif()
+
 if(MOONCHILD_AUDIO_SDL3)
     list(APPEND BACKEND_SOURCES  ${PLATFORM_DIR}/Backends/Audio/SDL3Audio.cpp)
+    list(APPEND BACKEND_INCLUDES
+        ${PLATFORM_DIR}/Backends/Audio
+        ${PLATFORM_DIR}/Audio
+        ${LIBRARY_DIR}/dr_libs
+    )
+endif()
+
+if(MOONCHILD_AUDIO_DREAMCAST)
+    list(APPEND BACKEND_SOURCES  ${PLATFORM_DIR}/Backends/Audio/DreamcastAudio.cpp)
     list(APPEND BACKEND_INCLUDES
         ${PLATFORM_DIR}/Backends/Audio
         ${PLATFORM_DIR}/Audio
@@ -214,11 +254,18 @@ if(MOONCHILD_WINDOW_SDL3)
     target_compile_definitions(${EXECUTABLE_NAME} PRIVATE MOONCHILD_WINDOW_SDL3)
     target_compile_definitions(${EXECUTABLE_NAME} PRIVATE MOONCHILD_HAS_DISPLAY_OPTIONS)
 endif()
+if(MOONCHILD_WINDOW_DREAMCAST)
+    target_compile_definitions(${EXECUTABLE_NAME} PRIVATE MOONCHILD_WINDOW_DREAMCAST)
+    target_compile_definitions(${EXECUTABLE_NAME} PRIVATE MOONCHILD_HAS_DISPLAY_OPTIONS)
+endif()
 if(MOONCHILD_RENDERER_GL)
     target_compile_definitions(${EXECUTABLE_NAME} PRIVATE MOONCHILD_RENDERER_GL)
 endif()
 if(MOONCHILD_RENDERER_SDL3)
     target_compile_definitions(${EXECUTABLE_NAME} PRIVATE MOONCHILD_RENDERER_SDL3)
+endif()
+if(MOONCHILD_RENDERER_DREAMCAST)
+    target_compile_definitions(${EXECUTABLE_NAME} PRIVATE MOONCHILD_RENDERER_DREAMCAST)
 endif()
 if(MOONCHILD_INPUT_SDL3)
     target_compile_definitions(${EXECUTABLE_NAME} PRIVATE MOONCHILD_INPUT_SDL3)
@@ -228,8 +275,14 @@ if(MOONCHILD_INPUT_SDL3)
         )
     endif()
 endif()
+if(MOONCHILD_INPUT_DREAMCAST)
+    target_compile_definitions(${EXECUTABLE_NAME} PRIVATE MOONCHILD_INPUT_DREAMCAST)
+endif()
 if(MOONCHILD_AUDIO_SDL3)
     target_compile_definitions(${EXECUTABLE_NAME} PRIVATE MOONCHILD_AUDIO_SDL3)
+endif()
+if(MOONCHILD_AUDIO_DREAMCAST)
+    target_compile_definitions(${EXECUTABLE_NAME} PRIVATE MOONCHILD_AUDIO_DREAMCAST)
 endif()
 if(MOONCHILD_USE_SDL3)
     target_compile_definitions(${EXECUTABLE_NAME} PRIVATE MOONCHILD_USE_SDL3 SDL_MAIN_HANDLED)
@@ -272,6 +325,10 @@ elseif(UNIX AND NOT APPLE)
     set(PLATFORM_NAME "Linux")
     target_compile_definitions(${EXECUTABLE_NAME} PRIVATE MOONCHILD_LINUX)
     include(${CMAKE_CURRENT_LIST_DIR}/CMake/Platforms/Linux.cmake)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "dreamcast")
+    set(PLATFORM_NAME "Dreamcast")
+    target_compile_definitions(${EXECUTABLE_NAME} PRIVATE MOONCHILD_DREAMCAST)
+    include(${KOS_BASE}/utils/cmake/Platform/dreamcast.cmake)
 endif()
 
 # Output directories
@@ -299,3 +356,9 @@ add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
         "${MOONCHILD_RESOURCES_DIR}"
         $<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/data
 )
+
+if(CMAKE_SYSTEM_NAME STREQUAL "dreamcast")
+    add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
+        COMMAND mkdcdisc -e $<TARGET_FILE:${EXECUTABLE_NAME}> -d $<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/data -o ${EXECUTABLE_NAME}.cdi
+    )
+endif()
