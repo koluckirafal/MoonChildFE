@@ -60,7 +60,7 @@ void DreamcastWindow::SetRelativeMouseMode(bool enabled)
 
 void DreamcastWindow::PumpOSEvents(IInput* sink, bool& outExitRequested)
 {
-    puts("NOOP: DreamcastWindow::PumpOSEvents");
+    // TODO: DreamcastWindow::PumpOSEvents
     /*
     SDL_Event sdlEvent;
     while (SDL_PollEvent(&sdlEvent))
