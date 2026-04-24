@@ -6,10 +6,9 @@
 #include <algorithm>
 #include <cstdio>
 
-DreamcastRenderer::DreamcastRenderer()
-{
-    printf("Hello, %s!\n", __func__);
-}
+#include <kos.h>
+
+DreamcastRenderer::DreamcastRenderer() = default;
 
 DreamcastRenderer::~DreamcastRenderer()
 {
@@ -44,15 +43,15 @@ void DreamcastRenderer::Destroy()
 
 void DreamcastRenderer::BeginFrame()
 {
-    printf("TODO: %s\n", __func__);
+    //printf("TODO: %s\n", __func__);
 }
 
 void DreamcastRenderer::DrawFrame(const unsigned char* rgbaPixels, int width, int height)
 {
-    printf("TODO: %s\n", __func__);
+    memcpy(vram_l, rgbaPixels, width * height * sizeof(vram_l[0]));
 }
 
 void DreamcastRenderer::EndFrame()
 {
-    printf("TODO: %s\n", __func__);
+    vid_flip(-1);
 }

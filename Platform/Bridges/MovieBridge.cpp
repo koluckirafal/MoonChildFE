@@ -54,7 +54,11 @@ static void OnVideo(plm_t* /*plm*/, plm_frame_t* frame, void* /*user*/)
         return;
 
     DecodedFrameRGBA.resize(static_cast<size_t>(sw) * sh * 4);
+#ifdef MOONCHILD_DREAMCAST
+    plm_frame_to_bgra(frame, DecodedFrameRGBA.data(), sw * 4);
+#else
     plm_frame_to_rgba(frame, DecodedFrameRGBA.data(), sw * 4);
+#endif
 
     int dw;
     int dh;

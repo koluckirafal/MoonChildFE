@@ -751,8 +751,13 @@ void Cvideo::ConvertPalToDib(void)
 		r = m_Palette[i*3 + 0]>>3;
 		g = m_Palette[i*3 + 1]>>2;
 		b = m_Palette[i*3 + 2]>>3;
+#ifdef MOONCHILD_DREAMCAST
+		// Use BGR order on Dreamcast. TODO: switch to RGR565 -BluRaf
+		m_DibPalette32[i] = (m_Palette[i*3 + 2]) | (m_Palette[i*3 + 1]<<8) | (m_Palette[i*3 + 0]<<16) | (255<<24);
+#else
 		// This was originally BGR, but I'm changing it to RGB here to make porting easier -Mors
         m_DibPalette32[i] = (m_Palette[i*3 + 0]) | (m_Palette[i*3 + 1]<<8) | (m_Palette[i*3 + 2]<<16) | (255<<24);
+#endif
    
         
 		m_DibPalette[i] = (b) + (g<<5) + (r<<11);
