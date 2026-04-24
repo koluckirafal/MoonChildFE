@@ -4,10 +4,7 @@
 
 static constexpr int AXIS_THRESHOLD = 16000;
 
-DreamcastInput::DreamcastInput()
-{
-    printf("Hello, %s!\n", __func__);
-}
+DreamcastInput::DreamcastInput() = default;
 
 DreamcastInput::~DreamcastInput()
 {
