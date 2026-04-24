@@ -33,6 +33,10 @@ extern Smack* mcsmk;
 #include <thread>
 #endif
 
+#ifdef MOONCHILD_DREAMCAST
+#include <kos.h>
+#endif
+
 extern int g_SettingsFlg;
 extern int g_ReqKeyFlg;
 extern int g_KeyTimeOut;
@@ -176,7 +180,11 @@ void Host::RunFrame()
     bool advancedFrame = false;
     while (Accumulator >= tickNs && Running)
     {
+#ifdef MOONCHILD_DREAMCAST
+        vid_waitvbl();
+#else
         InputBridge::Tick();
+#endif
         InputEvent inputEvent;
         while (InputBridge::PollNext(inputEvent))
         {
