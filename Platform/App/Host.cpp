@@ -162,13 +162,17 @@ void Host::RunFrame()
     Accumulator = std::min<uint64_t>(Accumulator, tickNs * 5ull);
 
     bool advancedFrame = false;
+
+#ifdef MOONCHILD_DREAMCAST
+    if (Running)
+#else
     while (Accumulator >= tickNs && Running)
+#endif
     {
 #ifdef MOONCHILD_DREAMCAST
         vid_waitvbl();
-#else
-        InputBridge::Tick();
 #endif
+        InputBridge::Tick();
         InputEvent inputEvent;
         while (InputBridge::PollNext(inputEvent))
         {
