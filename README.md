@@ -84,7 +84,36 @@ cd MoonChildFE
     2. Use the CMake commands directly. If you're taking this route, you probably don't need a guide in the first place.
 
 The executable will be end up in the `Bin` folder.
- 
+
+
+## Dreamcast
+
+1. Install [KallistiOS](https://github.com/KallistiOS/KallistiOS) and [mkdcdisc](https://gitlab.com/simulant/mkdcdisc) on your system.
+   Make sure that `mkdcdisc` is installed somewhere in directory added to `$PATH`.
+2. Clone the repository with submodules and enter it:
+
+```bash
+git clone --recursive https://github.com/koluckirafal/MoonChildFE.git -b dreamcast
+cd MoonChildFE
+```
+
+3. Source KallistiOS environment script in your shell:
+
+```bash
+source /opt/toolchains/dc/kos/environ.sh
+```
+
+4. Build the game:
+
+```bash
+mkdir -p build
+cd build
+kos-cmake ..
+make -j
+```
+
+The final `MoonChildFE.cdi` DiscJuggler image will be in `build` directory.
+
 
 ## Credits
 
