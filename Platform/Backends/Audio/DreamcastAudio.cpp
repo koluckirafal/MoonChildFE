@@ -172,10 +172,7 @@ static SoundAsset* ToAsset(SoundHandle handle)
     return reinterpret_cast<SoundAsset*>(handle);
 }
 
-DreamcastAudio::DreamcastAudio()
-{
-    printf("Hello, %s!\n", __func__);
-}
+DreamcastAudio::DreamcastAudio() = default;
 
 DreamcastAudio::~DreamcastAudio()
 {
