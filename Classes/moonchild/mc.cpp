@@ -298,8 +298,11 @@ void menuf1232(void);
 void menuf1233(void);
 void menuf1234(void);
 void menuf124(void);
+void menuf1241(void);
+void menuf1242(void);
+void menuf1243(void);
+void menuf1244(void);
 void menuf125(void);
-void menuf126(void);
 void menuf13(void);
 void menuf131(void);
 void menuf132(void);
@@ -567,15 +570,16 @@ MENU_ITEM menu1[] =
 
 char *speedrun_toggle_on  = "+  SPEEDRUN : ON    ";
 char *speedrun_toggle_off = "   SPEEDRUN : OFF   ";
+char *easiershoot_on      = "+EASIER SHOOT : ON  ";
+char *easiershoot_off     = " EASIER SHOOT : OFF ";
 
 MENU_ITEM menu12[] =
 {
-  {  3, menuf121, "        KEYS        "},
-  {  5, menuf122, "+      VIDEO        "},
-  {  7, menuf123, "+      AUDIO        "},
-  {  9, menuf125, speedrun_toggle_off},
-  { 11, menuf126, "   RESET PROGRESS   "},
-  { 13, menuf124, "=      RETURN       "},
+  {  4, menuf121, "        KEYS        "},
+  {  6, menuf122, "+      VIDEO        "},
+  {  8, menuf123, "+      AUDIO        "},
+  { 10, menuf124, "        GAME        "},
+  { 12, menuf125, "=      RETURN       "},
   { 0,0,0}
 };
 
@@ -651,6 +655,23 @@ MENU_ITEM menu123[] =
   {   7, menuf1232, sfxontxt },
   {   9, menuf1233, altmenuofftxt },
   {  11, menuf1234, "=      RETURN       "},
+  { 0,0,0}
+};
+
+MENU_ITEM menu1243[] =
+{
+  {   5, menuf1241, speedrun_toggle_off },
+  {   7, menuf1242, easiershoot_off },
+  {   9, menuf1243, "   RESET PROGRESS   "},
+  {  11, menuf1244, "=      RETURN       "},
+  { 0,0,0}
+};
+
+MENU_ITEM menu1243_alt[] =
+{
+  {   6, menuf1241, speedrun_toggle_off },
+  {   8, menuf1243, "   RESET PROGRESS   "},
+  {  10, menuf1244, "=      RETURN       "},
   { 0,0,0}
 };
 
@@ -991,9 +1012,9 @@ void load_highscores(void)
 
 
 #ifdef MOONCHILD_HAS_DISPLAY_OPTIONS
-  #define MC_OPTS_SLOT_COUNT 13
+  #define MC_OPTS_SLOT_COUNT 14
 #else
-  #define MC_OPTS_SLOT_COUNT 11
+  #define MC_OPTS_SLOT_COUNT 12
 #endif
 #define MC_OPTS_BYTE_COUNT (MC_OPTS_SLOT_COUNT * 2)
 
@@ -1023,6 +1044,7 @@ void save_options(void)
   optsavebuf[i++] = prefs->leftkey;
   optsavebuf[i++] = prefs->rightkey;
   optsavebuf[i++] = prefs->jumpkey;
+  optsavebuf[i++] = easiershootflg;
 
   savedocfile("mc_opts.dat", (char *) optsavebuf, MC_OPTS_BYTE_COUNT);
 }
@@ -1030,12 +1052,16 @@ void save_options(void)
 
 void load_options(void)
 {
-  UINT16 rc;
+  FILE *fp;
+  size_t loadedbytes = 0;
   memset(optsavebuf, 0, sizeof(optsavebuf));
-  rc = loaddocfile("mc_opts.dat", (char *) optsavebuf, MC_OPTS_BYTE_COUNT);
+  fp = fopen(FullWritablePath("mc_opts.dat"), "rb");
 
-  if (rc)
+  if (fp)
   {
+    loadedbytes = fread((char *)optsavebuf, 1, MC_OPTS_BYTE_COUNT, fp);
+    fclose(fp);
+
     int i = 0;
     animsflg = optsavebuf[i++];
     #ifdef MOONCHILD_HAS_DISPLAY_OPTIONS
@@ -1063,6 +1089,7 @@ void load_options(void)
     prefs->leftkey = optsavebuf[i++];
     prefs->rightkey = optsavebuf[i++];
     prefs->jumpkey = optsavebuf[i++];
+    easiershootflg = (loadedbytes >= MC_OPTS_BYTE_COUNT) ? (optsavebuf[i++] ? 1 : 0) : 0;
 
     if (sfxflg)
     {
@@ -1094,6 +1121,9 @@ void load_options(void)
   menu122[0].menutext = easiervisualsflg ? easyvisontxt : easyvisofftxt;
 #endif
   menu123[2].menutext = altmenutuneflg ? altmenuontxt : altmenuofftxt;
+  menu1243[0].menutext = speedrun_state.running ? speedrun_toggle_on : speedrun_toggle_off;
+  menu1243[1].menutext = easiershootflg ? easiershoot_on : easiershoot_off;
+  menu1243_alt[0].menutext = speedrun_state.running ? speedrun_toggle_on : speedrun_toggle_off;
 }
 
 
@@ -5931,12 +5961,11 @@ void handleinput1shot(void)
       keytab[CB_DOWN] = 0;
       downkey  = 1;
     }
-    if (keytab[' '] || keytab[VK_RETURN] || keytab[CB_JUMP] || keytab[CB_ACTION] || keytab[CB_START])
+    if (keytab[' '] || keytab[VK_RETURN] || keytab[CB_JUMP] || keytab[CB_START])
     {
       keytab[' '] = 0;
       keytab[VK_RETURN] = 0;
       keytab[CB_JUMP] = 0;
-      keytab[CB_ACTION] = 0;
       keytab[CB_START] = 0;
       shootkey = 1;
     }
@@ -6025,7 +6054,7 @@ void handleinputloop(void)
         {
           downkey  = 1;
         }
-      if (keytab[' '] || keytab[VK_RETURN] || keytab[CB_JUMP] || keytab[CB_ACTION] || keytab[CB_START])
+      if (keytab[' '] || keytab[VK_RETURN] || keytab[CB_JUMP] || keytab[CB_START])
         {
           shootkey = 1;
         }
@@ -7084,14 +7113,39 @@ HEARTBEAT_FN MC_menu(void)
       titlepic->draw_nokey(*refreshpic, 0, 0, 0, 0, 640, 480);
       menuleavefunc = (HEARTBEAT_FN) MC_leavemenu;
 	}
-    if (menupoint == menu12 || menupoint == menu13 || menupoint == menu_confirmreset)
+    if (menupoint == menu12 || menupoint == menu13)
 	{
+      MENU_ITEM *oldmenupoint = menupoint;
       menupoint = menu1;
+      start_afterbuilditem = (oldmenupoint == menu13) ? 3 : 1;
       menuleavefunc = (HEARTBEAT_FN) MC_buildmenu;
 	}
-    if (menupoint == menu121 || menupoint == menu1211 || menupoint == menu12111 || menupoint == menu121111 || menupoint == menu1211111 || menupoint == menu12111111 || menupoint == menu122 || menupoint == menu123)
-	{
+    if (menupoint == menu121 || menupoint == menu1211 || menupoint == menu12111 || menupoint == menu121111 || menupoint == menu1211111 || menupoint == menu12111111 || menupoint == menu122 || menupoint == menu123 || menupoint == menu1243 || menupoint == menu1243_alt)
+		{
+      MENU_ITEM *oldmenupoint = menupoint;
       menupoint = menu12;
+      if (oldmenupoint == menu122)
+      {
+        start_afterbuilditem = 1;
+      }
+      else if (oldmenupoint == menu123)
+      {
+        start_afterbuilditem = 2;
+      }
+      else if (oldmenupoint == menu1243 || oldmenupoint == menu1243_alt)
+      {
+        start_afterbuilditem = 3;
+      }
+      else
+      {
+        start_afterbuilditem = 0;
+      }
+      menuleavefunc = (HEARTBEAT_FN) MC_buildmenu;
+	}
+    if (menupoint == menu_confirmreset)
+	{
+      menupoint = speedrun_state.running ? menu1243_alt : menu1243;
+      start_afterbuilditem = speedrun_state.running ? 1 : 2;
       menuleavefunc = (HEARTBEAT_FN) MC_buildmenu;
 	}
     if (menuleavefunc)
@@ -7356,12 +7410,11 @@ void menuf12111111(void)
   menupoint = menu12;
   menuleavefunc = (HEARTBEAT_FN) MC_buildmenu;
 
-  if (prefs->jumpkey != 'C') return;
+  if (prefs->jumpkey  != 'C') return;
   if (prefs->shootkey != 'H') return;
   if (prefs->upkey    != 'E') return;
   if (prefs->downkey  != 'A') return;
   if (prefs->leftkey  != 'T') return;
-  if (prefs->rightkey != 'S') return;
 
   cheatmode = 1;
   maxlevel = 12;
@@ -7527,23 +7580,45 @@ void menuf1234(void)
   menuleavefunc = (HEARTBEAT_FN) MC_buildmenu;
 };
 
-void menuf125(void)
+void menuf124(void)
+{
+  menupoint = speedrun_state.running ? menu1243_alt : menu1243;
+  menuleavefunc = (HEARTBEAT_FN) MC_buildmenu;
+}
+
+void menuf1241(void)
 {
   speedrun_state.running = !speedrun_state.running;
-  menu12[3].menutext = speedrun_state.running
-      ? speedrun_toggle_on
-      : speedrun_toggle_off;
+  menu1243[0].menutext = speedrun_state.running ? speedrun_toggle_on : speedrun_toggle_off;
+  menu1243_alt[0].menutext = speedrun_state.running ? speedrun_toggle_on : speedrun_toggle_off;
+  menupoint = speedrun_state.running ? menu1243_alt : menu1243;
+
+  start_afterbuilditem = menuitem;
+  menuleavefunc = (HEARTBEAT_FN) MC_buildmenu;
+}
+
+void menuf1242(void)
+{
+  easiershootflg ^= 1;
+  menu1243[1].menutext = easiershootflg ? easiershoot_on : easiershoot_off;
 
   start_afterbuilditem = menuitem;
   menuleavefunc = (HEARTBEAT_FN) MC_buildmenu;
 }
 
 // Open progress reset confirmation submenu
-void menuf126(void)
+void menuf1243(void)
 {
   menupoint = menu_confirmreset;
   menuleavefunc = (HEARTBEAT_FN) MC_buildmenu;
 }
+
+void menuf1244(void)
+{
+  menupoint = menu12;
+  start_afterbuilditem = 3;
+  menuleavefunc = (HEARTBEAT_FN) MC_buildmenu;
+};
 
 // Finalize progress reset
 void menuf133(void)
@@ -7557,13 +7632,15 @@ void menuf133(void)
 // Cancel progress reset
 void menuf134(void)
 {
-  menupoint = menu12;
+  menupoint = speedrun_state.running ? menu1243_alt : menu1243;
+  start_afterbuilditem = speedrun_state.running ? 1 : 2;
   menuleavefunc = (HEARTBEAT_FN) MC_buildmenu;
 }
 
-void menuf124(void)
+void menuf125(void)
 {
   menupoint = menu1;
+  start_afterbuilditem = 1;
   menuleavefunc = (HEARTBEAT_FN) MC_buildmenu;
 };
 
@@ -7581,6 +7658,7 @@ void menuf131(void)
 void menuf132(void)
 {
   menupoint = menu1;
+  start_afterbuilditem = 3;
   menuleavefunc = (HEARTBEAT_FN) MC_buildmenu;
 };
 

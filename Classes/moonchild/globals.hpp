@@ -77,6 +77,7 @@ extern UINT16    streepflg;
 extern UINT16    vgaflg;
 extern UINT16    animsflg;
 extern UINT16    easiervisualsflg;
+extern UINT16    easiershootflg;
 #ifdef MOONCHILD_HAS_DISPLAY_OPTIONS
 #define MC_GAME_SPEED_VSYNC 0u
 #define MC_GAME_SPEED_50HZ  1u

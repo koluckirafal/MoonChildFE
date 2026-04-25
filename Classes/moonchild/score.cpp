@@ -114,10 +114,10 @@ static const char* smallfont[] =
   "       "
   "       "
   "       "
-  "  .    "
+  "   .   "
   "       "
   "       "
-  "  .    "
+  "   .   "
   "       "
   "       "
   ,
@@ -129,7 +129,7 @@ static const char* smallfont[] =
   "       "
   "       "
   "       "
-  "  .    "
+  "   .   "
 };
 static const char* smallfontmap = "0123456789:.";
 

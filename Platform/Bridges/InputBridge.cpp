@@ -1,5 +1,7 @@
 #include "InputBridge.h"
 
+#include <globals.hpp>
+
 #include <cstring>
 #include <deque>
 #include <unordered_map>
@@ -8,6 +10,7 @@ namespace InputBridge
 {
     static constexpr int REPEAT_DELAY_FRAMES = 30;
     static constexpr int REPEAT_INTERVAL_FRAMES = 2;
+    static constexpr int REPEAT_INTERVAL_FRAMES_EASY = 10;
 
     struct ActiveSource
     {
@@ -102,9 +105,12 @@ namespace InputBridge
                 return;
             }
 
-            for (auto& pair : ActiveSources)
+            if (!easiershootflg || speedrun_state.running)
             {
-                pair.second.RepeatSuppressed = true;
+                for (auto& pair : ActiveSources)
+                {
+                    pair.second.RepeatSuppressed = true;
+                }
             }
 
             ActiveSources.emplace(inputEvent.SourceId, ActiveSource{gameKeyCode, 0});
@@ -126,6 +132,9 @@ namespace InputBridge
 
     static void QueueRepeats()
     {
+        const int repeatIntervalFrames = (easiershootflg && !speedrun_state.running) ? REPEAT_INTERVAL_FRAMES_EASY
+                                                        : REPEAT_INTERVAL_FRAMES;
+
         for (auto& entry : ActiveSources)
         {
             ActiveSource& source = entry.second;
@@ -141,7 +150,7 @@ namespace InputBridge
                 continue;
             }
 
-            if ((source.FramesHeld - REPEAT_DELAY_FRAMES) % REPEAT_INTERVAL_FRAMES == 0)
+            if ((source.FramesHeld - REPEAT_DELAY_FRAMES) % repeatIntervalFrames == 0)
             {
                 Queue.push_back({source.Code, true});
             }

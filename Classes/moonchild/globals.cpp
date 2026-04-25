@@ -88,6 +88,7 @@ UINT16 streepflg;
 UINT16 vgaflg=1;
 UINT16 animsflg=1;
 UINT16 easiervisualsflg=0;
+UINT16 easiershootflg=0;
 #ifdef MOONCHILD_HAS_DISPLAY_OPTIONS
 UINT16 fullscreenflg=1;
 UINT16 gamespeedflg=0;
