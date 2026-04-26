@@ -4,8 +4,12 @@
 #include "SDL3Window.h"
 #endif
 
-#ifdef MOONCHILD_RENDERER_GL
-#include "GLRenderer.h"
+#ifdef MOONCHILD_RENDERER_OPENGL
+#include "OpenGLRenderer.h"
+#endif
+
+#ifdef MOONCHILD_RENDERER_GLES
+#include "GLESRenderer.h"
 #endif
 
 #ifdef MOONCHILD_RENDERER_SDL3
@@ -28,12 +32,12 @@ PlatformBackends MakeDefaultBackends()
     backends.Window.reset(new SDL3Window());
 #endif
 
-#ifdef MOONCHILD_RENDERER_GL
-    backends.Renderer.reset(new GLRenderer());
-#else
-#ifdef MOONCHILD_RENDERER_SDL3
+#if defined(MOONCHILD_RENDERER_OPENGL)
+    backends.Renderer.reset(new OpenGLRenderer());
+#elif defined(MOONCHILD_RENDERER_GLES)
+    backends.Renderer.reset(new GLESRenderer());
+#elif defined(MOONCHILD_RENDERER_SDL3)
     backends.Renderer.reset(new SDL3Renderer());
-#endif
 #endif
 
 #ifdef MOONCHILD_INPUT_SDL3

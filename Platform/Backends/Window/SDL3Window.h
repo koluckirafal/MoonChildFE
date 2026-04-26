@@ -2,14 +2,14 @@
 
 #include "IWindow.h"
 
-#ifdef MOONCHILD_RENDERER_GL
+#ifdef MOONCHILD_USE_OPENGL
 #include "IGLSurface.h"
 #endif
 
 #include <SDL3/SDL.h>
 
 class SDL3Window final : public IWindow
-#ifdef MOONCHILD_RENDERER_GL
+#ifdef MOONCHILD_USE_OPENGL
                        , public IGLSurface
 #endif
 {
@@ -28,8 +28,10 @@ public:
 
     void PumpOSEvents(IInput* sink, bool& outExitRequested) override;
 
-#ifdef MOONCHILD_RENDERER_GL
+#ifdef MOONCHILD_USE_OPENGL
     void MakeCurrent() override;
+    bool LoadOpenGLFunctions() override;
+    bool LoadOpenGLESFunctions() override;
     void SwapBuffers() override;
     void SetSwapInterval(int interval) override;
 #endif
@@ -41,7 +43,7 @@ private:
 #endif
 
     SDL_Window* Window = nullptr;
-#ifdef MOONCHILD_RENDERER_GL
+#ifdef MOONCHILD_USE_OPENGL
     SDL_GLContext GlContext = nullptr;
 #endif
 };

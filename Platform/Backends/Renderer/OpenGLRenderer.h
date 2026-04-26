@@ -6,9 +6,9 @@
 
 class IGLSurface;
 
-// Fancier backend that uses OpenGL ES 2.0
+// Fancier backend that uses OpenGL 2.1
 // Tries to correct shimmering on awkward resolutions
-class GLRenderer final : public IRenderer
+class OpenGLRenderer final : public IRenderer
 {
 public:
     bool Init(IWindow* hostWindow) override;

@@ -3,7 +3,19 @@
 #include "DisplayBridge.h"
 #include "IInput.h"
 
+#ifdef MOONCHILD_USE_OPENGL
+#include "glad.h"
+#endif
+
+#include <cmath>
 #include <cstdio>
+
+#ifdef MOONCHILD_USE_OPENGL
+static void* LoadSdlGlProc(const char* name)
+{
+    return reinterpret_cast<void*>(SDL_GL_GetProcAddress(name));
+}
+#endif
 
 SDL3Window::SDL3Window() = default;
 
@@ -30,12 +42,21 @@ bool SDL3Window::Create(const char* title, int width, int height)
 
     SDL_WindowFlags windowFlags = SDL_WINDOW_RESIZABLE;
     
-#ifdef MOONCHILD_RENDERER_GL
+#ifdef MOONCHILD_USE_OPENGL
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 0);
+
+#ifdef MOONCHILD_RENDERER_OPENGL
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+#endif
+
+#ifdef MOONCHILD_RENDERER_GLES
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 0);
+#endif
 
     windowFlags |= SDL_WINDOW_OPENGL;
 #endif
@@ -48,14 +69,14 @@ bool SDL3Window::Create(const char* title, int width, int height)
     }
 
     SDL_DisplayID displayId = SDL_GetDisplayForWindow(Window);
-    float scale = SDL_GetDisplayContentScale(displayId);
-    if (scale != 1.0f)
+    float scale = ceil(SDL_GetDisplayContentScale(displayId));
+    if (scale > 1.0f)
     {
         SDL_SetWindowSize(Window, width * scale, height * scale);
         SDL_SetWindowPosition(Window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     }
 
-#ifdef MOONCHILD_RENDERER_GL
+#ifdef MOONCHILD_USE_OPENGL
     GlContext = SDL_GL_CreateContext(Window);
     if (GlContext == nullptr)
     {
@@ -72,7 +93,7 @@ bool SDL3Window::Create(const char* title, int width, int height)
 
 void SDL3Window::Destroy()
 {
-#ifdef MOONCHILD_RENDERER_GL
+#ifdef MOONCHILD_USE_OPENGL
     if (GlContext != nullptr)
     {
         SDL_GL_DestroyContext(GlContext);
@@ -143,10 +164,20 @@ bool SDL3Window::HandleFullscreenHotkey(const SDL_Event& ev)
 }
 #endif
 
-#ifdef MOONCHILD_RENDERER_GL
+#ifdef MOONCHILD_USE_OPENGL
 void SDL3Window::MakeCurrent()
 {
     SDL_GL_MakeCurrent(Window, GlContext);
+}
+
+bool SDL3Window::LoadOpenGLFunctions()
+{
+    return gladLoadGLLoader(LoadSdlGlProc) != 0;
+}
+
+bool SDL3Window::LoadOpenGLESFunctions()
+{
+    return gladLoadGLES2Loader(LoadSdlGlProc) != 0;
 }
 
 void SDL3Window::SwapBuffers()

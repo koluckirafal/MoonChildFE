@@ -1,19 +1,16 @@
-#include "GLRenderer.h"
+#include "OpenGLRenderer.h"
 
 #include "IGLSurface.h"
 #include "IWindow.h"
 #include "PlatformConfig.h"
 
-#include <SDL3/SDL_video.h>
-
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <vector>
 
 static const char* VERTEX_SRC =
-    "precision highp float;\n"
+    "#version 120\n"
     "attribute vec2 aPosition;\n"
     "attribute vec2 aTexCoord;\n"
     "varying vec2 vTexCoord;\n"
@@ -25,7 +22,7 @@ static const char* VERTEX_SRC =
 // We could just scale it up with nearest-neighbour scaling, but that'd give us a lot of shimmering on awkward resolutions
 // This shader fixes that
 static const char* FRAGMENT_SRC =
-    "precision mediump float;\n"
+    "#version 120\n"
     "uniform sampler2D uSource;\n"
     "uniform vec2 uSourceSize;\n"
     "uniform vec2 uScale;\n"
@@ -49,11 +46,6 @@ static const GLfloat QUAD_VERTICES[] =
      1.0f, -1.0f, 1.0f, 1.0f,
 };
 
-static void* LoadGlProc(const char* name)
-{
-    return reinterpret_cast<void*>(SDL_GL_GetProcAddress(name));
-}
-
 static GLuint CompileShader(GLenum stage, const char* src)
 {
     GLuint shader = glCreateShader(stage);
@@ -75,7 +67,7 @@ static GLuint CompileShader(GLenum stage, const char* src)
     return shader;
 }
 
-bool GLRenderer::BuildSharpBilinearProgram()
+bool OpenGLRenderer::BuildSharpBilinearProgram()
 {
     GLuint vs = CompileShader(GL_VERTEX_SHADER, VERTEX_SRC);
     GLuint fs = CompileShader(GL_FRAGMENT_SHADER, FRAGMENT_SRC);
@@ -120,7 +112,7 @@ bool GLRenderer::BuildSharpBilinearProgram()
         && LocTexCoord >= 0;
 }
 
-bool GLRenderer::Init(IWindow* hostWindow)
+bool OpenGLRenderer::Init(IWindow* hostWindow)
 {
     Window = hostWindow;
 
@@ -133,9 +125,9 @@ bool GLRenderer::Init(IWindow* hostWindow)
     }
     Surface->MakeCurrent();
 
-    if (gladLoadGLES2Loader(LoadGlProc) == 0)
+    if (!Surface->LoadOpenGLFunctions())
     {
-        printf("gladLoadGLES2Loader failed!\n");
+        printf("OpenGL function loading failed!\n");
         Window = nullptr;
         Surface = nullptr;
         return false;
@@ -147,9 +139,6 @@ bool GLRenderer::Init(IWindow* hostWindow)
     SourceHeight = h;
     const std::vector<unsigned char> zeros(w * h * 4, 0);
 
-    // Hack to force disable sRGB, which the drivers seem to enable on Windows regardless of what SDL says!
-    glDisable(0x8DB9); // GL_FRAMEBUFFER_SRGB
-
     glGenTextures(1, &Texture);
     glBindTexture(GL_TEXTURE_2D, Texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -160,7 +149,7 @@ bool GLRenderer::Init(IWindow* hostWindow)
 
     if (!BuildSharpBilinearProgram())
     {
-        printf("GL shader program initialization failed!\n");
+        printf("OpenGL 2.1 shader program initialization failed!\n");
         Destroy();
         return false;
     }
@@ -173,7 +162,7 @@ bool GLRenderer::Init(IWindow* hostWindow)
     return true;
 }
 
-void GLRenderer::Destroy()
+void OpenGLRenderer::Destroy()
 {
     if (Surface != nullptr)
     {
@@ -198,14 +187,14 @@ void GLRenderer::Destroy()
     Surface = nullptr;
 }
 
-void GLRenderer::BeginFrame()
+void OpenGLRenderer::BeginFrame()
 {
     Surface->MakeCurrent();
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void GLRenderer::SetGlViewport(int windowWidth, int windowHeight, int bufferWidth, int bufferHeight)
+void OpenGLRenderer::SetGlViewport(int windowWidth, int windowHeight, int bufferWidth, int bufferHeight)
 {
     const float scaleX = static_cast<float>(windowWidth) / bufferWidth;
     const float scaleY = static_cast<float>(windowHeight) / bufferHeight;
@@ -221,7 +210,7 @@ void GLRenderer::SetGlViewport(int windowWidth, int windowHeight, int bufferWidt
     ViewportHeight = viewportHeight;
 }
 
-void GLRenderer::DrawFrame(const unsigned char* rgbaPixels, int width, int height)
+void OpenGLRenderer::DrawFrame(const unsigned char* rgbaPixels, int width, int height)
 {
     Surface->MakeCurrent();
 
@@ -256,12 +245,12 @@ void GLRenderer::DrawFrame(const unsigned char* rgbaPixels, int width, int heigh
     glUseProgram(0);
 }
 
-void GLRenderer::EndFrame()
+void OpenGLRenderer::EndFrame()
 {
     Surface->SwapBuffers();
 }
 
-void GLRenderer::DisplaySetVSync(bool enabled)
+void OpenGLRenderer::DisplaySetVSync(bool enabled)
 {
     Surface->SetSwapInterval(enabled ? 1 : 0);
 }
