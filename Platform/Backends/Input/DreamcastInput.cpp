@@ -1,8 +1,10 @@
 #include "DreamcastInput.h"
 
+#include <cstdint>
 #include <cstdio>
+#include <kos.h>
 
-static constexpr int AXIS_THRESHOLD = 16000;
+static constexpr int AXIS_THRESHOLD = 64;
 
 DreamcastInput::DreamcastInput() = default;
 
@@ -13,28 +15,41 @@ DreamcastInput::~DreamcastInput()
 
 bool DreamcastInput::Init()
 {
-    printf("TODO: %s\n", __func__);
+    maple_device_t *cont = maple_enum_type(0, MAPLE_FUNC_CONTROLLER);
+
+    if (!cont)
+    {
+        puts("Couldn't find any controller");
+        return false;
+    }
 
     return true;
 }
 
 void DreamcastInput::Destroy()
 {
-    printf("TODO: %s\n", __func__);
-
     ClearAllSources();
 }
 
 int DreamcastInput::TranslateKey(int sdlKey)
 {
-    printf("TODO: %s\n", __func__);
-
     return 0;
 }
 
 int DreamcastInput::TranslateGamepadButton(int button)
 {
-    printf("TODO: %s\n", __func__);
+    switch (button)
+    {
+        case CONT_DPAD_LEFT:  return CB_LEFT;
+        case CONT_DPAD_RIGHT: return CB_RIGHT;
+        case CONT_DPAD_UP:    return CB_UP;
+        case CONT_DPAD_DOWN:  return CB_DOWN;
+        case CONT_A:          return CB_JUMP;
+        case CONT_B:          return CB_ACTION;
+        case CONT_X:          return CB_BACK;
+        case CONT_START:      return CB_START;
+        default:              return INPUT_CODE_NONE;
+    }
 
     return INPUT_CODE_NONE;
 }
@@ -44,7 +59,19 @@ void DreamcastInput::TranslateGamepadAxis(int axis, int& outNegativeCode, int& o
     outNegativeCode = INPUT_CODE_NONE;
     outPositiveCode = INPUT_CODE_NONE;
 
-    printf("TODO: %s\n", __func__);
+    switch (axis)
+    {
+        case CONT_CAPABILITY_ANALOG_X:
+            outNegativeCode = CB_LEFT;
+            outPositiveCode = CB_RIGHT;
+            break;
+        case CONT_CAPABILITY_ANALOG_Y:
+            outNegativeCode = CB_UP;
+            outPositiveCode = CB_DOWN;
+            break;
+        default:
+            break;
+    }
 }
 
 void DreamcastInput::SetSource(uint32_t sourceId, int code, bool isDown)
@@ -79,18 +106,16 @@ void DreamcastInput::OnKeyEvent(int nativeKeyCode, bool isDown, bool isRepeat)
 
 void DreamcastInput::OnGamepadConnected(int instanceId)
 {
-    printf("TODO: %s\n", __func__);
+    return;
 }
 
 void DreamcastInput::OnGamepadDisconnected(int instanceId)
 {
-    printf("TODO: %s\n", __func__);
+    return;
 }
 
 void DreamcastInput::OnGamepadButton(int instanceId, int button, bool isDown)
 {
-    printf("TODO: %s\n", __func__);
-
     const int code = TranslateGamepadButton(button);
     if (code == 0)
     {
@@ -103,8 +128,6 @@ void DreamcastInput::OnGamepadButton(int instanceId, int button, bool isDown)
 
 void DreamcastInput::OnGamepadAxis(int instanceId, int axis, int value)
 {
-    printf("TODO: %s\n", __func__);
-
     int negativeCode = INPUT_CODE_NONE;
     int positiveCode = INPUT_CODE_NONE;
 

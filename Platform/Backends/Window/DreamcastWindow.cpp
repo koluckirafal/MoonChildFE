@@ -4,6 +4,7 @@
 #include "IInput.h"
 
 #include <cstdio>
+#include <kos.h>
 
 DreamcastWindow::DreamcastWindow() = default;
 
@@ -50,71 +51,34 @@ void DreamcastWindow::DisplaySetFullscreen(bool enabled)
 
 void DreamcastWindow::PumpOSEvents(IInput* sink, bool& outExitRequested)
 {
-    // TODO: DreamcastWindow::PumpOSEvents
-    /*
-    SDL_Event sdlEvent;
-    while (SDL_PollEvent(&sdlEvent))
-    {
-        if (sdlEvent.type == SDL_EVENT_QUIT)
-        {
-            outExitRequested = true;
-            continue;
-        }
+    // TODO: Handle:
+    // - CD tray state, if not handled automatically (exit when opened to prevent any crashes)
 
-        switch (sdlEvent.type)
-        {
-            case SDL_EVENT_WINDOW_ENTER_FULLSCREEN:
-                DisplayBridge::NotifyFullscreenChange(1);
-                break;
+    maple_device_t *dev;
+    cont_state_t *state;
 
-            case SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:
-                DisplayBridge::NotifyFullscreenChange(0);
-                break;
+    // Access first controller
+    dev = maple_enum_type(0, MAPLE_FUNC_CONTROLLER);
+    if (!dev) return;
 
-            case SDL_EVENT_WINDOW_FOCUS_LOST:
-#ifdef MOONCHILD_HAS_DISPLAY_OPTIONS
-                SwallowEnterKey = false;
-#endif
-                sink->OnFocusLost();
-                break;
+    // Fetch controller state
+    state = static_cast<cont_state_t *>(maple_dev_status(dev));
+    if (!state) return;
 
-            case SDL_EVENT_KEY_DOWN:
-            case SDL_EVENT_KEY_UP:
-#ifdef MOONCHILD_HAS_DISPLAY_OPTIONS
-                if (HandleFullscreenHotkey(sdlEvent))
-                {
-                    break;
-                }
-#endif
-                sink->OnKeyEvent(static_cast<int>(sdlEvent.key.key),
-                                 sdlEvent.type == SDL_EVENT_KEY_DOWN,
-                                 sdlEvent.key.repeat != 0);
-                break;
+    // Iterate over all buttons
+    sink->OnGamepadButton(0, CONT_DPAD_UP,    (state->buttons & CONT_DPAD_UP));
+    sink->OnGamepadButton(0, CONT_DPAD_DOWN,  (state->buttons & CONT_DPAD_DOWN));
+    sink->OnGamepadButton(0, CONT_DPAD_LEFT,  (state->buttons & CONT_DPAD_LEFT));
+    sink->OnGamepadButton(0, CONT_DPAD_RIGHT, (state->buttons & CONT_DPAD_RIGHT));
+    sink->OnGamepadButton(0, CONT_A,          (state->buttons & CONT_A));
+    sink->OnGamepadButton(0, CONT_B,          (state->buttons & CONT_B));
+    sink->OnGamepadButton(0, CONT_X,          (state->buttons & CONT_X));
+    sink->OnGamepadButton(0, CONT_Y,          (state->buttons & CONT_Y));
+    sink->OnGamepadButton(0, CONT_START,      (state->buttons & CONT_START));
 
-            case SDL_EVENT_GAMEPAD_ADDED:
-                sink->OnGamepadConnected(static_cast<int>(sdlEvent.gdevice.which));
-                break;
+    // Iterate over both axises of first analog joystick
+    sink->OnGamepadAxis(0, CONT_CAPABILITY_ANALOG_X, state->joyx);
+    sink->OnGamepadAxis(0, CONT_CAPABILITY_ANALOG_Y, state->joyy);
 
-            case SDL_EVENT_GAMEPAD_REMOVED:
-                sink->OnGamepadDisconnected(static_cast<int>(sdlEvent.gdevice.which));
-                break;
-
-            case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-            case SDL_EVENT_GAMEPAD_BUTTON_UP:
-                sink->OnGamepadButton(static_cast<int>(sdlEvent.gbutton.which),
-                                      sdlEvent.gbutton.button,
-                                      sdlEvent.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN);
-                break;
-
-            case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-                sink->OnGamepadAxis(static_cast<int>(sdlEvent.gaxis.which),
-                                    sdlEvent.gaxis.axis,
-                                    sdlEvent.gaxis.value);
-                break;
-
-            default:
-                break;
-        }
-    }
-    */
+    return;
 }
