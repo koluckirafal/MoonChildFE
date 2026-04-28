@@ -17,6 +17,8 @@ public:
     void Destroy() override;
 
     void OnKeyEvent(int nativeKeyCode, bool isDown, bool isRepeat) override;
+    void OnMouseMovement(float x, float y, float xrel, float yrel) override;
+    void OnMouseButton(int button, bool isDown, float x, float y) override;
     void OnGamepadConnected(int instanceId) override;
     void OnGamepadDisconnected(int instanceId) override;
     void OnGamepadButton(int instanceId, int button, bool isDown) override;
