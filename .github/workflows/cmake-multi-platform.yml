@@ -41,8 +41,8 @@ jobs:
             artifact_platform: LinuxX64
           - name: Web
             os: ubuntu-latest
-            configure_preset: wasm-release
-            build_preset: build-wasm-release
+            configure_preset: web-release
+            build_preset: build-web-release
             artifact_platform: Web
             emscripten: true
 
