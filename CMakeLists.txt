@@ -38,7 +38,7 @@ set_property(CACHE MOONCHILD_RENDERER_BACKEND PROPERTY STRINGS OpenGL GLES SDL3 
 set(MOONCHILD_INPUT_BACKEND "${MOONCHILD_INPUT_BACKEND_DEFAULT}" CACHE STRING "Input backend")
 set_property(CACHE MOONCHILD_INPUT_BACKEND PROPERTY STRINGS SDL3 Dreamcast)
 set(MOONCHILD_AUDIO_BACKEND "${MOONCHILD_AUDIO_BACKEND_DEFAULT}" CACHE STRING "Audio backend")
-set_property(CACHE MOONCHILD_AUDIO_BACKEND PROPERTY STRINGS SDL3 Dreamcastr)
+set_property(CACHE MOONCHILD_AUDIO_BACKEND PROPERTY STRINGS SDL3 Dreamcast)
 
 # Enable Editor
 option(MOONCHILD_ENABLE_EDITOR "Enable the level editor" OFF)
@@ -289,9 +289,12 @@ set(PLATFORM_APP_SOURCES
     ${PLATFORM_DIR}/Bridges/DisplayBridge.cpp
     ${PLATFORM_DIR}/Bridges/InputBridge.cpp
     ${PLATFORM_DIR}/Bridges/MovieBridge.cpp
-    ${PLATFORM_DIR}/Audio/MP3MusicTrack.cpp
     ${PLATFORM_DIR}/Audio/AudioMixer.cpp
 )
+
+if(NOT MOONCHILD_AUDIO_DREAMCAST)
+    list(APPEND PLATFORM_APP_SOURCES ${PLATFORM_DIR}/Audio/MP3MusicTrack.cpp)
+endif()
 
 # Backends
 set(BACKEND_SOURCES "")
@@ -363,7 +366,6 @@ if(MOONCHILD_AUDIO_DREAMCAST)
     list(APPEND BACKEND_INCLUDES
         ${PLATFORM_DIR}/Backends/Audio
         ${PLATFORM_DIR}/Audio
-        ${LIBRARY_DIR}/dr_libs
     )
 endif()
 
@@ -522,7 +524,39 @@ if(MSVC)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "dreamcast")
+    file(GLOB MP3_FILES "${CMAKE_CURRENT_SOURCE_DIR}/Data/mp3/*.mp3")
+
+    set(WAV_FILES)
+
+    make_directory("${CMAKE_BINARY_DIR}/audio/")
+    foreach(MP3 ${MP3_FILES})
+        get_filename_component(NAME ${MP3} NAME_WE)
+        set(WAV "${CMAKE_BINARY_DIR}/audio/${NAME}.wav")
+
+        add_custom_command(
+            OUTPUT ${WAV}
+            COMMAND ffmpeg -y -i ${MP3} ${WAV}
+            DEPENDS ${MP3}
+            COMMENT "Converting ${MP3} to WAV"
+        )
+
+        list(APPEND WAV_FILES ${WAV})
+    endforeach()
+
+    add_custom_target(convert_audio ALL DEPENDS ${WAV_FILES})
+
+    add_dependencies(${EXECUTABLE_NAME} convert_audio)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "dreamcast")
     add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
-        COMMAND mkdcdisc -e $<TARGET_FILE:${EXECUTABLE_NAME}> -d $<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/data -o ${EXECUTABLE_NAME}.cdi
+        COMMAND mkdcdisc -e $<TARGET_FILE:${EXECUTABLE_NAME}> -d $<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/data
+            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/audio/title.wav"
+            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/audio/world1.wav"
+            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/audio/world2.wav"
+            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/audio/world3.wav"
+            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/audio/world4.wav"
+            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/audio/title2.wav"
+            -o ${EXECUTABLE_NAME}.cdi
     )
 endif()

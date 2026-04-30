@@ -2,7 +2,11 @@
 
 #include <cstdint>
 
+#ifdef MOONCHILD_AUDIO_DREAMCAST
+using SoundHandle = uint32_t;
+#else
 using SoundHandle = intptr_t;
+#endif
 
 class IAudio
 {

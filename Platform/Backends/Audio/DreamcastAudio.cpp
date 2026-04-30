@@ -1,10 +1,11 @@
 #include "DreamcastAudio.h"
 
-#include "AudioMixer.h"
+//#include "AudioMixer.h"
 #include "MediaCatalog.h"
-#include "MP3MusicTrack.h"
 
 #include <kos.h>
+#include <dc/sound/sound.h>
+#include <dc/sound/aica_comm.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -19,22 +20,19 @@ extern char* FullPath(char* file);
 static constexpr int MIX_FREQUENCY = 48000;
 static constexpr int MIX_CHANNELS  = 2;
 static constexpr int MIX_BUFFER_SAMPLES = 8192;
-static constexpr int MUSIC_DECODE_BATCH_FRAMES = 4096;
-static constexpr int MUSIC_DECODE_SCRATCH_SAMPLES = MUSIC_DECODE_BATCH_FRAMES * 2; // worst-case stereo
 
 struct SfxState
 {
-    void* Stream = nullptr;
-    uint8_t Spec = {};
-    bool Ready = false;
-};
-
-struct MusicState
-{
-    void* Converter = nullptr;
-    MP3MusicTrack Source;
-    float Gain = 1.0f;
-    bool Active = false;
+    SoundHandle id = 0;
+    int chn = -1;
+    uint64_t count = 0;
+    
+    int32_t volume;
+    int32_t pan;
+    float left;
+    float right;
+    uint8_t aicaVol;
+    uint8_t aicaPan;
 };
 
 struct MovieState
@@ -42,134 +40,36 @@ struct MovieState
     void* Converter = nullptr;
 };
 
-static SfxState Sfx;
-static AudioMixer SfxMixer;
-static MusicState Music;
 static MovieState Movie;
+static std::vector<SfxState> SfxStateVec;
+static uint64_t g_PlayCounter = 0;
 
-static float MixBuffer[MIX_BUFFER_SAMPLES];
-
-static float MusicDecodeScratch[MUSIC_DECODE_SCRATCH_SAMPLES];
-static float MixedAudioScratch[MIX_BUFFER_SAMPLES];
-
-static bool LoadWav(const char* path, std::vector<float>& outSamples, int& outFrameCount)
+static inline void RecomputeAICA(SfxState& v)
 {
-    printf("TODO: %s\n", __func__);
+    // clamp inputs
+    int32_t volume = std::clamp<int32_t>(v.volume, -4000, 0);
+    int32_t pan    = std::clamp<int32_t>(v.pan, -1000, 1000);
 
-    return false;
-}
+    // equal-power gain
+    float gain = (volume + 4000) / 4000.0f;
 
-static void CleanUpMusicStuff(MusicState& musicState)
-{
-    printf("TODO: %s\n", __func__);
-    musicState.Converter = nullptr;
-    musicState.Source.Close();
-    musicState.Active = false;
-}
+    float p = pan / 1000.0f;
+    constexpr float quarterPi = 0.78539816339f;
 
-static void FeedMusicConverter(void* /*UserData*/, void* stream,
-                                       int AdditionalAmount, int /*TotalAmount*/)
-{
-    if (!Music.Active || !Music.Source.IsOpen())
-    {
-        return;
-    }
+    float angle = (p + 1.0f) * quarterPi;
 
-    const int channels = Music.Source.GetChannelCount();
-    const int bytesPerFrame = channels * static_cast<int>(sizeof(float));
-    if (bytesPerFrame <= 0 || AdditionalAmount <= 0)
-    {
-        return;
-    }
+    v.left  = gain * std::cos(angle);
+    v.right = gain * std::sin(angle);
 
-    const int requestedFrames = (AdditionalAmount + bytesPerFrame - 1) / bytesPerFrame;
-    const int framesToRead = std::min(requestedFrames, MUSIC_DECODE_BATCH_FRAMES);
+    // map back to AICA volume, preserving perceived loudness
+    float mono = std::sqrt(v.left * v.left + v.right * v.right);
+    v.aicaVol = static_cast<uint8_t>(std::clamp(mono, 0.0f, 1.0f) * 255.0f);
 
-    const size_t framesRead = Music.Source.ReadFrames(MusicDecodeScratch, static_cast<size_t>(framesToRead));
-    if (framesRead == 0)
-    {
-        return;
-    }
+    // derive AICA panning from balance
+    float sum = v.left + v.right;
+    float bal = (sum > 1e-6f) ? (v.right / sum) : 0.5f;
 
-    const int bytes = static_cast<int>(framesRead) * channels * static_cast<int>(sizeof(float));
-    printf("TODO: %s\n", __func__);
-}
-
-static void MixMusic(float* dst, int sampleCount)
-{
-    if (!Music.Active || Music.Converter == nullptr)
-    {
-        return;
-    }
-
-    const int neededBytes = sampleCount * static_cast<int>(sizeof(float));
-    printf("TODO: %s\n", __func__);
-    const int got = 0;
-    if (got <= 0)
-    {
-        return;
-    }
-
-    const int gotSamples = got / static_cast<int>(sizeof(float));
-    const float gain = Music.Gain;
-    for (int i = 0; i < gotSamples; i++)
-    {
-        dst[i] += MixedAudioScratch[i] * gain;
-    }
-}
-
-static void MixMovie(float* dst, int sampleCount)
-{
-    if (Movie.Converter == nullptr)
-    {
-        return;
-    }
-
-    const int neededBytes = sampleCount * static_cast<int>(sizeof(float));
-
-    printf("TODO: %s\n", __func__);
-    const int got = 0;
-
-    if (got <= 0)
-    {
-        return;
-    }
-
-    const int gotSamples = got / static_cast<int>(sizeof(float));
-    for (int i = 0; i < gotSamples; i++)
-    {
-        dst[i] += MixedAudioScratch[i];
-    }
-}
-
-static void FeedSfx(void* /*UserData*/, void* stream, int additionalAmount, int /*TotalAmount*/)
-{
-    int sampleCount = additionalAmount / static_cast<int>(sizeof(float));
-    if (sampleCount > MIX_BUFFER_SAMPLES)
-    {
-        sampleCount = MIX_BUFFER_SAMPLES;
-    }
-    const int byteCount = sampleCount * static_cast<int>(sizeof(float));
-
-    std::memset(MixBuffer, 0, byteCount);
-
-    MixMusic(MixBuffer, sampleCount);
-    MixMovie(MixBuffer, sampleCount);
-
-    SfxMixer.MixVoicesInto(MixBuffer, sampleCount);
-
-    printf("TODO: %s\n", __func__);
-
-    for (int i = 0; i < sampleCount; i++)
-    {
-        MixBuffer[i] = 0;
-    }
-
-}
-
-static SoundAsset* ToAsset(SoundHandle handle)
-{
-    return reinterpret_cast<SoundAsset*>(handle);
+    v.aicaPan = static_cast<uint8_t>(std::clamp(bal, 0.0f, 1.0f) * 255.0f);
 }
 
 DreamcastAudio::DreamcastAudio() = default;
@@ -181,14 +81,7 @@ DreamcastAudio::~DreamcastAudio()
 
 bool DreamcastAudio::Init()
 {
-    if (Sfx.Ready)
-    {
-        return true;
-    }
-
-    printf("TODO: %s\n", __func__);
-
-    Sfx.Ready = false;
+    snd_init();
     return true;
 }
 
@@ -196,12 +89,6 @@ void DreamcastAudio::Destroy()
 {
     StopMusic();
     Reset();
-    printf("TODO: %s\n", __func__);
-    Sfx.Stream = nullptr;
-    if (Sfx.Ready)
-    {
-        Sfx.Ready = false;
-    }
 }
 
 SoundHandle DreamcastAudio::CreateSound(int soundId, int maxPolyphony)
@@ -217,167 +104,148 @@ SoundHandle DreamcastAudio::CreateSound(int soundId, int maxPolyphony)
         return 0;
     }
 
-    std::unique_ptr<SoundAsset> asset(new SoundAsset());
-    asset->SoundId = soundId;
-    asset->MaxPolyphony = std::max(1, maxPolyphony);
-
     char relBuf[512];
     std::snprintf(relBuf, sizeof(relBuf), "audio/%s", name);
     const char* path = FullPath(relBuf);
-    if (!LoadWav(path, asset->Samples, asset->FrameCount))
+
+    printf("%s: Loading %s\n", __func__, path);
+    sfxhnd_t handle = snd_sfx_load(path);
+    if (handle == SFXHND_INVALID)
     {
+        printf("Couldn't load SFX %s\n", path);
         return 0;
     }
 
-    return reinterpret_cast<SoundHandle>(asset.release());
+    return reinterpret_cast<SoundHandle>(handle);
+    return 0;
 }
 
 void DreamcastAudio::DestroySound(SoundHandle sound)
 {
-    SoundAsset* asset = ToAsset(sound);
-    if (asset == nullptr)
-    {
-        return;
-    }
-
-    printf("TODO: %s\n", __func__);
-    SfxMixer.DeactivateVoicesFor(asset);
-
-    delete asset;
+    snd_sfx_unload(reinterpret_cast<sfxhnd_t>(sound));
 }
 
 void DreamcastAudio::PlayOneShot(SoundHandle sound, int32_t volume, int32_t pan)
 {
-    SoundAsset* asset = ToAsset(sound);
-    if (asset == nullptr)
-    {
-        return;
-    }
+    sfx_play_data_t sfx_data = {0};
+    SfxState state{};
 
-    printf("TODO: %s\n", __func__);
+    state.volume = volume;
+    state.pan = pan;
+    RecomputeAICA(state);
 
-    ActiveVoice* slot = SfxMixer.AcquireVoiceSlot(asset);
-    slot->Asset = asset;
-    slot->FrameOffset = 0;
-    slot->Loop = false;
-    slot->Active = true;
-    slot->PlayId = SfxMixer.NextPlayId++;
-    slot->Volume = volume;
-    slot->Pan = pan;
-    AudioMixer::CalculateGain(volume, pan, slot->GainLeft, slot->GainRight);
+    sfx_data.chn = -1;
+    sfx_data.idx = reinterpret_cast<sfxhnd_t>(sound);
+    sfx_data.vol = state.aicaVol;
+    sfx_data.pan = state.aicaPan;
+    sfx_data.loop = 0;
+
+    state.id = sound;
+    state.chn = snd_sfx_play_ex(&sfx_data);
+    state.count = ++g_PlayCounter;
+    SfxStateVec.push_back(state);
 }
 
 void DreamcastAudio::PlayLoop(SoundHandle sound, int32_t volume, int32_t pan)
 {
-    SoundAsset* asset = ToAsset(sound);
-    if (asset == nullptr)
-    {
-        return;
-    }
+    sfx_play_data_t sfx_data = {0};
+    SfxState state{};
 
-    printf("TODO: %s\n", __func__);
+    state.volume = volume;
+    state.pan = pan;
+    RecomputeAICA(state);
 
-    for (ActiveVoice& voice : SfxMixer.Voices)
-    {
-        if (voice.Active && voice.Asset == asset && voice.Loop)
-        {
-            voice.Volume = volume;
-            voice.Pan = pan;
-            AudioMixer::CalculateGain(volume, pan, voice.GainLeft, voice.GainRight);
-            return;
-        }
-    }
+    sfx_data.chn = -1;
+    sfx_data.idx = reinterpret_cast<sfxhnd_t>(sound);
+    sfx_data.vol = state.aicaVol;
+    sfx_data.pan = state.aicaPan;
+    sfx_data.loop = 1;
 
-    ActiveVoice* slot = SfxMixer.AcquireVoiceSlot(asset);
-    slot->Asset = asset;
-    slot->FrameOffset = 0;
-    slot->Loop = true;
-    slot->Active = true;
-    slot->PlayId = SfxMixer.NextPlayId++;
-    slot->Volume = volume;
-    slot->Pan = pan;
-    AudioMixer::CalculateGain(volume, pan, slot->GainLeft, slot->GainRight);
+    state.id = sound;
+    state.chn = snd_sfx_play_ex(&sfx_data);
+    state.count = ++g_PlayCounter;
+    SfxStateVec.push_back(state);
 }
 
 void DreamcastAudio::StopSound(SoundHandle sound)
 {
-    SoundAsset* asset = ToAsset(sound);
-    if (asset == nullptr)
+    for (auto it = SfxStateVec.begin(); it != SfxStateVec.end(); )
     {
-        return;
+        if (it->id == sound)
+        {
+            snd_sfx_stop(it->chn);
+            it = SfxStateVec.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
     }
-
-    printf("TODO: %s\n", __func__);
-
-    SfxMixer.DeactivateVoicesFor(asset);
 }
 
 void DreamcastAudio::StopCurrent(SoundHandle sound)
 {
-    SoundAsset* asset = ToAsset(sound);
-    if (asset == nullptr)
-    {
-        return;
-    }
+    auto newestIt = SfxStateVec.end();
 
-    printf("TODO: %s\n", __func__);
-
-    ActiveVoice* newest = nullptr;
-    for (ActiveVoice& voice : SfxMixer.Voices)
+    for (auto it = SfxStateVec.begin(); it != SfxStateVec.end(); ++it)
     {
-        if (voice.Active && voice.Asset == asset)
+        if (it->id == sound)
         {
-            if (newest == nullptr || voice.PlayId > newest->PlayId)
+            if (newestIt == SfxStateVec.end() || it->count > newestIt->count)
             {
-                newest = &voice;
+                newestIt = it;
             }
         }
     }
 
-    if (newest != nullptr)
+    if (newestIt != SfxStateVec.end())
     {
-        newest->Active = false;
-        newest->Asset = nullptr;
+        snd_sfx_stop(newestIt->chn);
+        SfxStateVec.erase(newestIt);
     }
 }
 
 void DreamcastAudio::SetVolume(SoundHandle sound, int32_t volume)
 {
-    SoundAsset* asset = ToAsset(sound);
-    if (asset == nullptr)
+    for (auto it = SfxStateVec.begin(); it != SfxStateVec.end(); )
     {
-        return;
-    }
-
-    printf("TODO: %s\n", __func__);
-
-    for (ActiveVoice& voice : SfxMixer.Voices)
-    {
-        if (voice.Active && voice.Asset == asset)
+        if (it->id == sound)
         {
-            voice.Volume = volume;
-            AudioMixer::CalculateGain(voice.Volume, voice.Pan, voice.GainLeft, voice.GainRight);
+            it->volume = volume;
+            RecomputeAICA(*it);
+    
+            AICA_CMDSTR_CHANNEL(tmp, cmd, chan);
+            cmd->cmd = AICA_CMD_CHAN;
+            cmd->timestamp = 0;
+            cmd->size = AICA_CMDSTR_CHANNEL_SIZE;
+            cmd->cmd_id = it->chn;
+            chan->cmd = AICA_CH_CMD_UPDATE | AICA_CH_UPDATE_SET_VOL;
+            chan->vol = it->aicaVol;
+            snd_sh4_to_aica(tmp, cmd->size);
         }
+        ++it;
     }
 }
 
 void DreamcastAudio::SetPan(SoundHandle sound, int32_t pan)
 {
-    SoundAsset* asset = ToAsset(sound);
-    if (asset == nullptr)
+    for (auto it = SfxStateVec.begin(); it != SfxStateVec.end(); )
     {
-        return;
-    }
-
-    printf("TODO: %s\n", __func__);
-
-    for (ActiveVoice& voice : SfxMixer.Voices)
-    {
-        if (voice.Active && voice.Asset == asset)
+        if (it->id == sound)
         {
-            voice.Pan = pan;
-            AudioMixer::CalculateGain(voice.Volume, voice.Pan, voice.GainLeft, voice.GainRight);
+            it->pan = pan;
+            RecomputeAICA(*it);
+
+            AICA_CMDSTR_CHANNEL(tmp, cmd, chan);
+            cmd->cmd = AICA_CMD_CHAN;
+            cmd->timestamp = 0;
+            cmd->size = AICA_CMDSTR_CHANNEL_SIZE;
+            cmd->cmd_id = it->chn;
+            chan->cmd = AICA_CH_CMD_UPDATE | AICA_CH_UPDATE_SET_PAN;
+            chan->pan = it->aicaPan;
+            snd_sh4_to_aica(tmp, cmd->size);
         }
+        ++it;
     }
 }
 
@@ -386,49 +254,30 @@ void DreamcastAudio::Reset()
     CloseMovieStream();
 
     printf("TODO: %s\n", __func__);
-
-    SfxMixer.ResetAllVoices();
 }
 
 bool DreamcastAudio::PlayMusic(int trackNumber)
 {
+    // On Dreamcast we go back to CDDA, freeing AICA to do SFX stuff later
+    // TODO: Error handling
+
     const MusicTrack* track = GetMusicTrack(trackNumber);
     if (track == nullptr)
     {
         return false;
     }
-
-    if (!Init())
-    {
-        return false;
-    }
-
-    StopMusic();
-
-    char relBuf[512];
-    std::snprintf(relBuf, sizeof(relBuf), "mp3/%s", track->Path);
-    const char* path = FullPath(relBuf);
-
-    if (!Music.Source.Open(path))
-    {
-        printf("Opening MP3MusicTrack failed! %s\n", path);
-        return false;
-    }
-
-    printf("TODO: %s\n", __func__);
-
-    Music.Gain = track->Volume;
-    Music.Active = true;
+    
+    int volume = (std::sqrt(track->Volume) * 15);// (track->Volume * 15);
+    printf("music volume: %d\n", volume);
+    cdrom_cdda_play((trackNumber - 1), (trackNumber - 1), 15, CDDA_TRACKS);
+    spu_cdda_volume(volume, volume);
 
     return true;
 }
 
 void DreamcastAudio::StopMusic()
 {
-    printf("TODO: %s\n", __func__);
-
-    CleanUpMusicStuff(Music);
-
+    cdrom_cdda_pause();
 }
 
 bool DreamcastAudio::OpenMovieStream(int sampleRate, int channels)
