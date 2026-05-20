@@ -1,7 +1,9 @@
 #include "Resources.h"
 
 #include "globals.hpp"
+#ifdef MOONCHILD_WINDOW_SDL3
 #include "SDL3/SDL_filesystem.h"
+#endif
 
 #include <cstdio>
 #include <cstring>
