@@ -88,8 +88,15 @@ bool Host::Initialize()
         return false;
     }
 
+#ifdef MOONCHILD_RENDERER_DREAMCAST
+    // Texture must have width and height equal to a multiplies of 2
+    // to successfully twiddle it while loading to VRAM.
+    pvr_ptr_t texture = pvr_mem_malloc(1024 * 512);
+    PixelBuffer.reset(static_cast<unsigned char *>(texture));
+#else
     PixelBuffer.reset(new unsigned char[GAME_FRAMEBUFFER_WIDTH * GAME_FRAMEBUFFER_HEIGHT * 4]);
     std::memset(PixelBuffer.get(), 0, GAME_FRAMEBUFFER_WIDTH * GAME_FRAMEBUFFER_HEIGHT * 4);
+#endif
 
     AudioBridge::Attach(Backends.Audio.get());
     DisplayBridge::Attach(Backends.Window.get(), Backends.Renderer.get());
@@ -179,15 +186,15 @@ void Host::RunFrame()
 
     bool advancedFrame = false;
 
-#ifdef MOONCHILD_DREAMCAST
-    if (Running)
-#else
+//#ifdef MOONCHILD_DREAMCAST
+//    if (Running)
+//#else
     while (Accumulator >= tickNs && Running)
-#endif
+//#endif
     {
-#ifdef MOONCHILD_DREAMCAST
-        vid_waitvbl();
-#endif
+// #ifdef MOONCHILD_DREAMCAST
+//         vid_waitvbl();
+// #endif
         InputBridge::Tick();
         InputEvent inputEvent;
         while (InputBridge::PollNext(inputEvent))
@@ -325,5 +332,6 @@ int Host::Run()
     Shutdown();
 #endif
 
+    puts("bye!!");
     return 0;
 }

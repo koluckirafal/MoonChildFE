@@ -1,5 +1,12 @@
 #include "frm_int.hpp"
 
+#ifdef MOONCHILD_RENDERER_DREAMCAST
+#include <kos.h>
+#include <dc/pvr.h>
+
+uint8_t pre_twiddle[1024*512];
+#endif
+
 MC_PALETTEENTRY        dumpe[1024];        // last entered palette  (for requests)
 MC_PALETTEENTRY        pe[1024];        // last entered palette  (for requests)
 
@@ -209,14 +216,23 @@ void Cvideo::swap(void)
     
     if((g_RenderMode%NUMRENDERMODES)==0) // nearest neigbour
     {
+#ifdef MOONCHILD_RENDERER_DREAMCAST
+		for (int y = 0; y < 480; y++)
+		{
+			memcpy(pre_twiddle+(y*1024), SrcPtr+(y*640), 640);
+		}
+		pvr_ptr_t texture = reinterpret_cast<pvr_ptr_t>(DestBuf);
+		pvr_txr_load_ex(pre_twiddle, texture, 1024, 512, PVR_TXRLOAD_8BPP);
+#else
         for (unsigned int y = 0; y < 480; y++) {
             for (unsigned int x = 0; x < (640>>5); x++) {
 //                *DestBuf++ = m_DibPalette32[*SrcPtr++];
                 UNROLL32
             }
         }
+#endif
     }
-    
+
 /*	
 	if(g_Display->BeginScene())
 	{
@@ -546,7 +562,9 @@ Cvideo &Cvideo::clear(UINT16 color_index)
 }
 
 
-
+/*
+ * Set whole palette (3x256 bytes)
+ */
 Cvideo &Cvideo::palette(BYTE *palette)
 {
   int                 i;
@@ -563,13 +581,16 @@ Cvideo &Cvideo::palette(BYTE *palette)
     *PalPtr++  = *(palette++);
     }
     
-  
+
 	ConvertPalToDib();
 
 	return *this;
 }
 
 
+/*
+ * Set numcol palette entries, starting from entry startcol
+ */
 Cvideo &Cvideo::palette_index(BYTE *palette, UINT16 startcol, UINT16 numcol)
 {
   int                 i;
@@ -591,7 +612,22 @@ Cvideo &Cvideo::palette_index(BYTE *palette, UINT16 startcol, UINT16 numcol)
   return *this;
 }
 
+#if MOONCHILD_RENDERER_DREAMCAST
+#define PACK_ARGB8888(a,r,g,b) ( ((a & 0xFF) << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF) )
+/*
+ * TODO: rename to "SetRendererPalette" or something when doing renderer API change.
+ * Goal is to move palette conversion to renderer, so it can handle pixel mode difference by itself.
+ */
+void Cvideo::ConvertPalToDib(void)
+{
+	pvr_set_pal_format(PVR_PAL_ARGB8888);
 
+	const uint32_t palette_offset = 0*256; // 0-3
+	for (int i = 0; i < 256; i++) {
+		pvr_set_pal_entry(palette_offset + i, PACK_ARGB8888(255, m_Palette[i*3 + 0], m_Palette[i*3 + 1], m_Palette[i*3 + 2]));
+	}
+}
+#else
 void Cvideo::ConvertPalToDib(void)
 {
 	unsigned short r,g,b;
@@ -632,7 +668,14 @@ void Cvideo::ConvertPalToDib(void)
 	}
 
 }
+#endif
 
+/*
+ * Set whole palette (3x256 bytes) with intensity factor applied for all entries
+ * factor < 256 - fade-out
+ * factor == 256 - no change
+ * factor > 256 - brightening
+ */
 Cvideo &Cvideo::palette(BYTE *palette, UINT16 factor)
 {
 	int                 i;
@@ -654,7 +697,12 @@ Cvideo &Cvideo::palette(BYTE *palette, UINT16 factor)
 	return *this;
 }
 
-
+/*
+ * Set whole palette (3x256 bytes) with intensity factor applied for entries from 0 to number-1
+ * factor < 256 - fade-out
+ * factor == 256 - no change
+ * factor > 256 - brightening
+ */
 Cvideo &Cvideo::palette(BYTE *palette, UINT16 factor, UINT16 number)
 {
   int                 i;

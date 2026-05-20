@@ -36,11 +36,13 @@ static const char* ResolveMoviePath(const char* mpgFileName)
 
 static void ClearFramebufferBlack()
 {
+#ifndef MOONCHILD_RENDERER_DREAMCAST
     if (HostFramebuffer && HostFramebufferWidth > 0 && HostFramebufferHeight > 0)
     {
         std::memset(HostFramebuffer, 0,
             static_cast<size_t>(HostFramebufferWidth) * HostFramebufferHeight * 4);
     }
+#endif
 }
 
 static void OnVideo(plm_t* /*plm*/, plm_frame_t* frame, void* /*user*/)
@@ -84,6 +86,7 @@ static void OnVideo(plm_t* /*plm*/, plm_frame_t* frame, void* /*user*/)
     {
         const int sy = (y * sh) / dh;
         const uint8_t* srcRow = &DecodedFrameRGBA[static_cast<size_t>(sy) * sw * 4];
+#ifndef MOONCHILD_RENDERER_DREAMCAST
         uint8_t* dstRow =
             HostFramebuffer + (static_cast<size_t>(dy + y) * HostFramebufferWidth + dx) * 4;
         for (int x = 0; x < dw; x++)
@@ -96,6 +99,7 @@ static void OnVideo(plm_t* /*plm*/, plm_frame_t* frame, void* /*user*/)
             d[2] = s[2];
             d[3] = 0xFF;
         }
+#endif
     }
 }
 

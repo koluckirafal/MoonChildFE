@@ -3,6 +3,7 @@
 #include "IRenderer.h"
 
 #include <kos.h>
+#include <dc/pvr.h>
 
 class DreamcastRenderer final : public IRenderer
 {
