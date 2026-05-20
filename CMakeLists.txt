@@ -554,6 +554,12 @@ if(NOT ANDROID)
                 $<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/data
         )
     endif()
+    if (MOONCHILD_AUDIO_DREAMCAST)
+        add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E rm -r
+                $<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/data/mp3
+        )
+    endif()
 endif()
 
 # MSVC shut up
@@ -562,14 +568,14 @@ if(MSVC)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "dreamcast")
-    file(GLOB MP3_FILES "${CMAKE_CURRENT_SOURCE_DIR}/Data/mp3/*.mp3")
+    file(GLOB MP3_FILES "${MOONCHILD_RESOURCES_DIR}/mp3/*.mp3")
 
     set(WAV_FILES)
 
-    make_directory("${CMAKE_BINARY_DIR}/audio/")
+    make_directory("${CMAKE_BINARY_DIR}/music/")
     foreach(MP3 ${MP3_FILES})
         get_filename_component(NAME ${MP3} NAME_WE)
-        set(WAV "${CMAKE_BINARY_DIR}/audio/${NAME}.wav")
+        set(WAV "${CMAKE_BINARY_DIR}/music/${NAME}.wav")
 
         add_custom_command(
             OUTPUT ${WAV}
@@ -581,20 +587,20 @@ if(CMAKE_SYSTEM_NAME STREQUAL "dreamcast")
         list(APPEND WAV_FILES ${WAV})
     endforeach()
 
-    add_custom_target(convert_audio ALL DEPENDS ${WAV_FILES})
+    add_custom_target(convert_music ALL DEPENDS ${WAV_FILES})
 
-    add_dependencies(${EXECUTABLE_NAME} convert_audio)
+    add_dependencies(${EXECUTABLE_NAME} convert_music)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "dreamcast")
     add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
         COMMAND mkdcdisc -e $<TARGET_FILE:${EXECUTABLE_NAME}> -d $<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/data
-            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/audio/title.wav"
-            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/audio/world1.wav"
-            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/audio/world2.wav"
-            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/audio/world3.wav"
-            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/audio/world4.wav"
-            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/audio/title2.wav"
+            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/music/title.wav"
+            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/music/world1.wav"
+            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/music/world2.wav"
+            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/music/world3.wav"
+            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/music/world4.wav"
+            -c "$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/music/title2.wav"
             -o ${EXECUTABLE_NAME}.cdi
     )
 endif()
