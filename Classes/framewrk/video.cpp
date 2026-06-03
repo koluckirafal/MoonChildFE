@@ -4,7 +4,10 @@
 #include <kos.h>
 #include <dc/pvr.h>
 
-uint8_t pre_twiddle[1024*512];
+static volatile uint64_t tex_start = 0;
+static volatile uint64_t tex_end = 0;
+
+alignas(32) uint8_t pre_twiddle[1024*512];
 #endif
 
 MC_PALETTEENTRY        dumpe[1024];        // last entered palette  (for requests)
@@ -42,10 +45,10 @@ VG_BOOLEAN Cvideo::on(unsigned char *pixelbuffer, UINT16 w, UINT16 h, UINT16 num
   width = w;
   height = h;
 
-  m_OffscreenBuf = (char *)malloc(w*h);
-    memset(m_OffscreenBuf, 0, w*h);
-  m_FadeSnapshotBuffer = (char *)malloc(w*h);
-  memset(m_FadeSnapshotBuffer, 0, static_cast<size_t>(w) * h);
+  m_OffscreenBuf = (char *)memalign(32, w*h);
+  //memset(m_OffscreenBuf, 0, w*h);
+  m_FadeSnapshotBuffer = (char *)memalign(32, w*h);
+  //memset(m_FadeSnapshotBuffer, 0, static_cast<size_t>(w) * h);
   g_OffScreenBuf = m_OffscreenBuf;			// easy way to check for blitroutien if it is to backbuffer or not so we can skip it
 
   in_graphics = VG_TRUE;
@@ -170,6 +173,18 @@ void Cvideo::set_fade_swap_from_snapshot(bool enabled)
 	m_FadeUsesSnapshot = enabled;
 }
 
+#ifdef MOONCHILD_RENDERER_DREAMCAST
+static dma_config_t dma_cfg = {
+    .channel = static_cast<dma_channel_t>(1),
+    .request = DMA_REQUEST_AUTO_MEM_TO_MEM,
+    .unit_size = DMA_UNITSIZE_32BYTE,
+    .src_mode = DMA_ADDRMODE_INCREMENT,
+    .dst_mode = DMA_ADDRMODE_INCREMENT,
+    .transmit_mode = DMA_TRANSMITMODE_BURST,
+    .callback = NULL,
+};
+#endif
+
 void Cvideo::swap(void)
 {
 	static int interlace;
@@ -205,7 +220,7 @@ void Cvideo::swap(void)
 		}
 		else
 		{
-			memcpy(m_FadeSnapshotBuffer, m_OffscreenBuf, static_cast<size_t>(width) * height);
+			dma_transfer(&dma_cfg, dma_map_dst(m_FadeSnapshotBuffer, width * height), dma_map_dst(m_OffscreenBuf, width * height), static_cast<size_t>(width) * height, NULL);
 			SrcPtr = (unsigned char *)m_OffscreenBuf;
 		}
 	}
@@ -217,15 +232,18 @@ void Cvideo::swap(void)
     if((g_RenderMode%NUMRENDERMODES)==0) // nearest neigbour
     {
 #ifdef MOONCHILD_RENDERER_DREAMCAST
+		if (tex_start) printf("tex prepare: %lld us\n", (tex_end-tex_start));
+		tex_start = timer_us_gettime64();
 		for (int y = 0; y < 480; y++)
 		{
-			memcpy(pre_twiddle+(y*1024), SrcPtr+(y*640), 640);
+			dma_transfer(&dma_cfg, dma_map_dst(pre_twiddle+(y*1024), width), dma_map_dst(SrcPtr+(y*width), width), width, NULL);
 		}
 		pvr_ptr_t texture = reinterpret_cast<pvr_ptr_t>(DestBuf);
 		pvr_txr_load_ex(pre_twiddle, texture, 1024, 512, PVR_TXRLOAD_8BPP);
+		tex_end = timer_us_gettime64();
 #else
         for (unsigned int y = 0; y < 480; y++) {
-            for (unsigned int x = 0; x < (640>>5); x++) {
+            for (unsigned int x = 0; x < (width>>5); x++) {
 //                *DestBuf++ = m_DibPalette32[*SrcPtr++];
                 UNROLL32
             }
