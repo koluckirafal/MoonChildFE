@@ -4,6 +4,8 @@
 
 #include <kos.h>
 
+bool wait_dma(void);
+
 class DreamcastRenderer final : public IRenderer
 {
 public:

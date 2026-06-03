@@ -8,6 +8,18 @@
 
 #include <kos.h>
 
+static volatile int dma_done = 1;
+
+static void dma_complete(void *userdata) {
+    dma_done = 1;
+    vid_flip(-1);
+}
+
+bool wait_dma(void)
+{
+    return !dma_done;
+}
+
 DreamcastRenderer::DreamcastRenderer() = default;
 
 DreamcastRenderer::~DreamcastRenderer()
@@ -26,6 +38,7 @@ bool DreamcastRenderer::Init(IWindow* hostWindow)
         return false;
     }
     //DcWindow = dcWindow->GetNativeWindow();
+    pvr_dma_init();
 
     return true;
 }
@@ -46,12 +59,23 @@ void DreamcastRenderer::BeginFrame()
     //printf("TODO: %s\n", __func__);
 }
 
-void DreamcastRenderer::DrawFrame(const unsigned char* rgbaPixels, int width, int height)
+void DreamcastRenderer::DrawFrame(const unsigned char*__restrict rgbaPixels, int width, int height)
 {
-    memcpy(vram_l, rgbaPixels, width * height * sizeof(vram_l[0]));
+    uint32_t vram_fb = vid_get_start(-1);
+
+    dma_done = 0;
+    pvr_dma_transfer(
+        rgbaPixels,
+        vram_fb,
+        (width * height * 4),
+        PVR_DMA_VRAM32,
+        0,
+        dma_complete,
+        NULL
+    );
 }
 
 void DreamcastRenderer::EndFrame()
 {
-    vid_flip(-1);
+    return;
 }

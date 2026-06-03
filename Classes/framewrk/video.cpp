@@ -1,4 +1,7 @@
 #include "frm_int.hpp"
+#ifdef MOONCHILD_DREAMCAST
+#include "DreamcastRenderer.h"
+#endif
 
 MC_PALETTEENTRY        dumpe[1024];        // last entered palette  (for requests)
 MC_PALETTEENTRY        pe[1024];        // last entered palette  (for requests)
@@ -23,7 +26,6 @@ Cvideo::~Cvideo(void)
        off();
     }
 }
-
           
 VG_BOOLEAN Cvideo::on(unsigned char *pixelbuffer, UINT16 w, UINT16 h, UINT16 numcols)
 {
@@ -35,10 +37,15 @@ VG_BOOLEAN Cvideo::on(unsigned char *pixelbuffer, UINT16 w, UINT16 h, UINT16 num
   width = w;
   height = h;
 
+#ifdef MOONCHILD_RENDERER_DREAMCAST
+  m_OffscreenBuf = (char *)memalign(32, w*h);
+  m_FadeSnapshotBuffer = (char *)memalign(32, w*h);
+#else
   m_OffscreenBuf = (char *)malloc(w*h);
-    memset(m_OffscreenBuf, 0, w*h);
+  memset(m_OffscreenBuf, 0, w*h);
   m_FadeSnapshotBuffer = (char *)malloc(w*h);
   memset(m_FadeSnapshotBuffer, 0, static_cast<size_t>(w) * h);
+#endif
   g_OffScreenBuf = m_OffscreenBuf;			// easy way to check for blitroutien if it is to backbuffer or not so we can skip it
 
   in_graphics = VG_TRUE;
@@ -153,6 +160,18 @@ void Cvideo::DrawLoading(void)
      
 }
 
+#ifdef MOONCHILD_RENDERER_DREAMCAST
+static dma_config_t dma_cfg = {
+    .channel = static_cast<dma_channel_t>(1),
+    .request = DMA_REQUEST_AUTO_MEM_TO_MEM,
+    .unit_size = DMA_UNITSIZE_32BYTE,
+    .src_mode = DMA_ADDRMODE_INCREMENT,
+    .dst_mode = DMA_ADDRMODE_INCREMENT,
+    .transmit_mode = DMA_TRANSMITMODE_BURST,
+    .callback = NULL,
+};
+#endif
+
 #define UNROLL *DestBuf++ = m_DibPalette32[*SrcPtr++];
 #define UNROLL8 UNROLL UNROLL UNROLL UNROLL UNROLL UNROLL UNROLL UNROLL
 #define UNROLL32 UNROLL8 UNROLL8 UNROLL8 UNROLL8
@@ -198,7 +217,11 @@ void Cvideo::swap(void)
 		}
 		else
 		{
+#ifdef MOONCHILD_RENDERER_DREAMCAST
+			dma_transfer(&dma_cfg, dma_map_dst(m_FadeSnapshotBuffer, (width*height)), dma_map_dst(m_OffscreenBuf, (width*height)), static_cast<size_t>(width) * height, NULL);
+#else
 			memcpy(m_FadeSnapshotBuffer, m_OffscreenBuf, static_cast<size_t>(width) * height);
+#endif
 			SrcPtr = (unsigned char *)m_OffscreenBuf;
 		}
 	}
@@ -209,6 +232,9 @@ void Cvideo::swap(void)
     
     if((g_RenderMode%NUMRENDERMODES)==0) // nearest neigbour
     {
+#ifdef MOONCHILD_DREAMCAST
+        while (wait_dma()) {};
+#endif
         for (unsigned int y = 0; y < 480; y++) {
             for (unsigned int x = 0; x < (640>>5); x++) {
 //                *DestBuf++ = m_DibPalette32[*SrcPtr++];
@@ -604,7 +630,7 @@ void Cvideo::ConvertPalToDib(void)
 		g = m_Palette[i*3 + 1]>>2;
 		b = m_Palette[i*3 + 2]>>3;
 #ifdef MOONCHILD_DREAMCAST
-		// Use BGR order on Dreamcast. TODO: switch to RGR565 -BluRaf
+		// Use BGR order on Dreamcast -BluRaf
 		m_DibPalette32[i] = (m_Palette[i*3 + 2]) | (m_Palette[i*3 + 1]<<8) | (m_Palette[i*3 + 0]<<16) | (255<<24);
 #else
 		// This was originally BGR, but I'm changing it to RGB here to make porting easier -Mors

@@ -101,7 +101,7 @@ bool Host::Initialize()
         return false;
     }
 
-    PixelBuffer.reset(new unsigned char[GAME_FRAMEBUFFER_WIDTH * GAME_FRAMEBUFFER_HEIGHT * 4]);
+    PixelBuffer.reset(new (std::align_val_t(32)) unsigned char[GAME_FRAMEBUFFER_WIDTH * GAME_FRAMEBUFFER_HEIGHT * 4]);
     std::memset(PixelBuffer.get(), 0, GAME_FRAMEBUFFER_WIDTH * GAME_FRAMEBUFFER_HEIGHT * 4);
 
     AudioBridge::Attach(Backends.Audio.get());

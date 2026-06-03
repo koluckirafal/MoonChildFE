@@ -26,7 +26,7 @@ bool DreamcastWindow::Create(const char* title, int width, int height)
         return false;
     }
 
-    vid_set_mode(DM_640x480 | DM_MULTIBUFFER, PM_RGB888);
+    vid_set_mode(DM_640x480 | DM_MULTIBUFFER, PM_RGB0888);
 
     return true;
 }
